@@ -3,9 +3,10 @@ import pandas as pd
 import json
 
 class LLMRunner(ABC):
-    def __init__(self, temperature, save_every):
+    def __init__(self, temperature, save_every, model_id):
         self.temperature = temperature
         self.save_every = save_every
+        self.model_id = model_id
         self.system_message =  """You are a decision-making assistant. You'll receive a message containing three sections of a message: ##context, ##question and ##options with exactly three options formatted as follows:
 
 Option 0: <option text>
@@ -48,15 +49,14 @@ Option 2: __option2__
             .replace('__option1__', answer_info['ans1'])\
             .replace('__option2__', answer_info['ans2'])
 
-    def run_llm(self, df, output_path):
+    def run_llm(self, client, df, output_path):
         df['result'] = None
         df['tokens'] = None
 
         for i, row in df.iterrows():
             try:
-                model_answer, total_tokens = self.run_one_prompt(row)
+                model_answer = self.run_one_prompt(client, row)
                 df.at[i, 'result'] = model_answer
-                df.at[i, 'tokens'] = total_tokens
             except Exception as e:
                 print(f"Error on line {i}: {e}")
 
@@ -66,7 +66,7 @@ Option 2: __option2__
         df.to_csv(output_path, index=False)
 
     @abstractmethod
-    def load_model(self):
+    def connect(self):
         pass
 
     @abstractmethod

@@ -4,11 +4,11 @@ import os
 
 from runner import LLMRunner
 
-class DeepseekRunner(LLMRunner):
-    def __init__(self, temperature, save_every):
-        super().__init__(temperature, save_every)
+class GPTRunner(LLMRunner):
+    def __init__(self, temperature, save_every, model_id):
+        super().__init__(temperature, save_every, model_id)
 
-    def load_model(self):
+    def connect(self):
         load_dotenv()
         api_key = os.getenv('API_KEY')
         client = AzureOpenAI(
@@ -18,7 +18,7 @@ class DeepseekRunner(LLMRunner):
             )
         return client
 
-    def run_one_prompt(self, client, row, temperature):
+    def run_one_prompt(self, client, row):
         user_message = self.create_user_message(row.context, row.question, row.answer_info)
 
         messages = [
@@ -26,10 +26,9 @@ class DeepseekRunner(LLMRunner):
                 {"role": "user", "content": user_message}
             ]
         response = client.chat.completions.create(
-        model = 'gpt',
+        model = self.model_id,
         messages = messages,
-        temperature=temperature 
+        temperature=self.temperature 
         )
-        total_tokens = response.usage.total_tokens
 
-        return response.choices[0].message.content, total_tokens
+        return response.choices[0].message.content
