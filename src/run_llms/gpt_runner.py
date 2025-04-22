@@ -10,10 +10,11 @@ class GPTRunner(LLMRunner):
 
     def connect(self):
         load_dotenv()
-        api_key = os.getenv('API_KEY')
+        api_key = os.getenv('GPT_API_KEY')
+        endpoint = os.getenv('GPT_ENDPOINT')
         client = AzureOpenAI(
-            azure_endpoint = os.getenv('ENDPOINT'),
-            api_key = os.getenv('API_KEY', api_key),
+            azure_endpoint = endpoint,
+            api_key = api_key,
             api_version="2024-10-21"
             )
         return client

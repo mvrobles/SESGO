@@ -3,6 +3,7 @@ from deepseek_runner import DeepseekRunner
 from llama_runner import LlamaRunner
 from gpt_runner import GPTRunner
 from gemini_runner import GeminiRunner
+from claude_runner import ClaudeRunner
 
 model_ids = {
     'llama': "meta-llama/Llama-3.1-8B-Instruct",
@@ -30,7 +31,9 @@ if __name__ == '__main__':
     elif args.model_id == 'gpt':
         runner = GPTRunner(args.temperature, args.save_every, model_id = 'gpt')
     elif args.model_id == 'gemini':
-        runner = GeminiRunner(args.temperature, args.save_every, model_id = "e")
+        runner = GeminiRunner(args.temperature, args.save_every, model_id = "gemini-2.0-flash")
+    elif args.model_id == 'claude':
+        runner = ClaudeRunner(args.temperature, args.save_every, model_id = 'claude-3-5-haiku-20241022')
     else:
         raise ValueError("Invalid model ID. Choose from: llama, llama_uncensored, gpt, deepseek, gemini")
     

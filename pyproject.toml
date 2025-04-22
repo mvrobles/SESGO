@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "anthropic>=0.49.0",
     "azureopenai>=0.0.1",
     "dotenv>=0.9.9",
     "google-genai>=1.11.0",
