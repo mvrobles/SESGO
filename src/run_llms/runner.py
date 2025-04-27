@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from tqdm import tqdm
 import pandas as pd
 import json
 
@@ -53,7 +54,7 @@ Option 2: __option2__
         df['result'] = None
         df['tokens'] = None
 
-        for i, row in df.iterrows():
+        for i, row in tqdm(df.iterrows(), total=len(df), disable=False):
             try:
                 model_answer = self.run_one_prompt(client, row)
                 df.at[i, 'result'] = model_answer
