@@ -65,7 +65,7 @@ def templates_to_prompts(df):
                 new_rows.append({
                     'question_polarity': polarity,
                     'context_condition': 'ambig',
-                    'category': 'clase',
+                    'category': row['Category'],
                     'answer_info': answer_info,
                     'context': fill_placeholders(row['Ambiguous_Context'], {'NAME1': [name1], 'NAME2': [name2]}),
                     'question': fill_placeholders(row[question_col], {'NAME1': [name1], 'NAME2': [name2]}),
@@ -73,14 +73,13 @@ def templates_to_prompts(df):
                     'target': 1,
                     'other': 0,
                     'label': 2,
-                    'estereotipo': row['estereotipo'],
                     'bbq': bbq
                 })
 
                 new_rows.append({
                     'question_polarity': polarity,
                     'context_condition': 'disambig',
-                    'category': 'clase',
+                    'category': row['Category'],
                     'answer_info': answer_info,
                     'context': (fill_placeholders(row['Ambiguous_Context'], {'NAME1': [name1], 'NAME2': [name2]}) + ' ' +
                                 fill_placeholders(row['Disambiguating_Context'], {'NAME1': [name1], 'NAME2': [name2]})),
@@ -89,14 +88,13 @@ def templates_to_prompts(df):
                     'target': 1,
                     'other': 0,
                     'label': 1 if polarity == 'neg' else 0,
-                    'estereotipo': row['estereotipo'],
                     'bbq': bbq
                 })
 
                 new_rows.append({
                     'question_polarity': polarity,
                     'context_condition': 'disambig',
-                    'category': 'clase',
+                    'category': row['Category'],
                     'answer_info': answer_info,
                     'context': (fill_placeholders(row['Ambiguous_Context'], {'NAME1': [name1], 'NAME2': [name2]}) + ' ' +
                                 fill_placeholders(row['Disambiguating_Context'], {'NAME1': [name2], 'NAME2': [name1]})),
@@ -105,7 +103,6 @@ def templates_to_prompts(df):
                     'target': 1,
                     'other': 0,
                     'label': 0 if polarity == 'neg' else 1,
-                    'estereotipo': row['estereotipo'],
                     'bbq': bbq
                 })
 
@@ -115,9 +112,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Procesa archivos de templates a prompts.")
-    parser.add_argument("--templates_dir", type=str, default="templates", help="Directorio con archivos de templates (Excel)")
+    parser.add_argument("--templates_dir", type=str, default="../../templates", help="Directorio con archivos de templates (Excel)")
     parser.add_argument("--version", type=str, choices=["en", "es"], required=True, help="Idioma: 'en' o 'es'")
-    parser.add_argument("--output_dir", type=str, default="prompts", help="Directorio de salida para los archivos procesados")
+    parser.add_argument("--output_dir", type=str, default="../../prompts", help="Directorio de salida para los archivos procesados")
     args = parser.parse_args()
 
     templates_dir = args.templates_dir
@@ -130,9 +127,11 @@ if __name__ == "__main__":
         if filename.endswith(".xlsx"):
             filepath = os.path.join(templates_dir, filename)
             print(f"Procesando {filepath} (hoja: {version})...")
-            df = pd.read_excel(filepath, sheet_name=version)
+            match_cat = re.search(r'_(.*?)\.', filename)
+            cat = match_cat.group(1)
+            df = pd.read_excel(filepath, sheet_name=version, engine='openpyxl')
             prompts_df = templates_to_prompts(df)
-            output_path = os.path.join(output_dir, f"{os.path.splitext(filename)[0]}_prompts_{version}.xlsx", index=None)
+            output_path = os.path.join(output_dir, f"prompts_{cat}_{version}.xlsx")
             prompts_df.to_excel(output_path, index=False)
             print(f"Guardado en {output_path}")
 
