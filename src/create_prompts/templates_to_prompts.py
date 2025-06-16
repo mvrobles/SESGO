@@ -7,14 +7,14 @@ import os
 
 def fill_placeholders(text, names_dict):
     """
-    Reemplaza los placeholders en el texto por los valores correspondientes en names_dict.
+    Replaces the placeholders in the text with the corresponding values from names_dict.
 
     Args:
-        text (str): Texto con placeholders en formato {{KEY}}.
-        names_dict (dict): Diccionario donde las claves son los nombres de los placeholders y los valores son listas de nombres.
+        text (str): Text containing placeholders in the format {{KEY}}.
+        names_dict (dict): Dictionary where the keys are the placeholder names and the values are lists of names.
 
     Returns:
-        str: Texto con los placeholders reemplazados por los valores correspondientes.
+        str: Text with the placeholders replaced by the corresponding values.
     """
 
     for key, values in names_dict.items():
@@ -41,14 +41,15 @@ def parse_names(names_str):
 
 def templates_to_prompts(df):
     """
-        Convierte un DataFrame de templates en un DataFrame de prompts expandiendo combinaciones de nombres y preguntas.
+    Converts a DataFrame of templates into a DataFrame of prompts by expanding combinations of names and questions.
 
-        Args:
-            df (pd.DataFrame): DataFrame con las columnas necesarias para generar los prompts.
+    Args:
+        df (pd.DataFrame): DataFrame containing the necessary columns to generate the prompts.
 
-        Returns:
-            pd.DataFrame: DataFrame con los prompts generados.
-    """  
+    Returns:
+        pd.DataFrame: DataFrame with the generated prompts.
+    """
+
     new_rows = []
 
     for _, row in df.iterrows():
