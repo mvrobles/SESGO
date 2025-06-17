@@ -1,124 +1,106 @@
-# Packages
-import os
 import pandas as pd
-from glob import glob
+from pathlib import Path
 import argparse
 
+def load_and_merge(base_df, filepath, colname, filter_bbq=True):
+    if not Path(filepath).exists():
+        return base_df
+    df = pd.read_excel(filepath)
+    if filter_bbq and 'bbq' in df.columns:
+        df = df[df['bbq'] == False]
+    df = df[['context', 'question', 'answer', 'label', 'probab_label']]
+    df.rename(columns={'probab_label': colname}, inplace=True)
+    return pd.merge(base_df, df, on=['context', 'question', 'answer', 'label'], how='outer')
+
 def collect_results(input_dir, language):
-    """
-    Collects all .xlsx files from the input directory (recursively), extracts metadata from filenames,
-    and concatenates them into a single DataFrame with additional columns for bias type, temperature, model, and language.
-
-    Args:
-        input_dir (str): Path to the directory containing the result .xlsx files.
-        language (str): Language code ("es" or "en").
-
-    Returns:
-        pd.DataFrame: Concatenated DataFrame with all results and metadata columns.
-    """
     temps = ['01', '025', '05', '075', '1']
     bias_types = ['racismo', 'clasismo', 'genero', 'xenofobia']
 
-    dfs = {}
+    models = {
+        "claude":        lambda bt, t: f"claude/{bt}_claude_{t}_processed.xlsx",
+        "deepseek":      lambda bt, t: f"deepseek/results_DeepSeekR1_7B_{bt}_T{t}.xlsx",
+        "gemini":        lambda bt, t: f"gemini/{bt}_gemini_{t}_processed.xlsx",
+        "gpt":           lambda bt, t: f"gpt/{bt}_gpt_temp_{t}_processed.xlsx",
+        "llama":         lambda bt, t: f"llama/{bt}_llama_31_8B_temp_{t}_processed.xlsx",
+        "llama_unc":     lambda bt, t: f"llama_uncensored/{bt}_llama_uncensored_31_8B_temp_{t}_processed.xlsx",
+    }
+
+    colnames = {
+        "claude":        lambda t: f'results_Claude_T{t}',
+        "deepseek":      lambda t: f'results_DeepSeekR1_7B_T{t}',
+        "gemini":        lambda t: f'results_Gemini_T{t}',
+        "gpt":           lambda t: f'results_gpt4omini_temp_{t}_num',
+        "llama":         lambda t: f'results_llama_318B_temp_{t}_num',
+        "llama_unc":     lambda t: f'results_llama_318B_uncensored_temp_{t}_num',
+    }
+
+    all_dfs = []
+
     for bt in bias_types:
-        # Add in the loop the models you are using
+        # Claude base
+        base_fp = Path(input_dir) / f"claude/{bt}_claude_01_processed.xlsx"
+        df = pd.read_excel(base_fp)
+        df.rename(columns={'probab_label': colnames["claude"]("01")}, inplace=True)
 
-        dfs[f'results_{bt}'] = pd.read_excel(input_dir + f'/claude/{bt}_claude_01_processed.xlsx')
-        dfs[f'results_{bt}'].rename(columns={'probab_label': 'results_Claude_T01'}, inplace=True)
+        # Agregar modelos y temperaturas
+        for model_key, path_fn in models.items():
+            for t in (temps if model_key != "claude" else temps[1:]):
+                fp = Path(input_dir) / path_fn(bt, t)
+                df = load_and_merge(df, fp, colnames[model_key](t))
 
-        for i in range(len(temps)-1):
-            t = temps[i+1]
-            results_temp = pd.read_excel(input_dir + f'claude/{bt}_claude_{t}_processed.xlsx')
-            results_temp = results_temp[results_temp['bbq'] == False]
-            results_temp.rename(columns={'probab_label': f'results_Claude_T{t}'}, inplace=True)
-            dfs[f'results_{bt}'] = pd.merge(dfs[f'results_{bt}'], results_temp[['context', 'question', 'answer', 'label', f'results_Claude_T{t}']], on=['context', 'question', 'answer', 'label'], how='outer')
+        df['tipo'] = bt
+        if 'id_prompt' in df.columns:
+            df.rename(columns={'id_prompt': 'prompt_id'}, inplace=True)
+        all_dfs.append(df)
 
-        for i in range(len(temps)):
-            t = temps[i]
-            results_temp = pd.read_excel(input_dir + f'deepseek/results_DeepSeekR1_7B_{bt}_T{t}.xlsx')
-            results_temp = results_temp[results_temp['bbq'] == False]
-            results_temp.rename(columns={'probab_label': f'results_DeepSeekR1_7B_T{t}'}, inplace=True)
-            dfs[f'results_{bt}'] = pd.merge(dfs[f'results_{bt}'], results_temp[['context', 'question', 'answer', 'label', f'results_DeepSeekR1_7B_T{t}']], on=['context', 'question', 'answer', 'label'], how='outer')
+    df_all = pd.concat(all_dfs, ignore_index=True)
+    out_path_all = f'aggregated_results_temps_{language}.xlsx'
 
-        for i in range(len(temps)):
-            t = temps[i]
-            results_temp = pd.read_excel(input_dir + f'gemini/{bt}_gemini_{t}_processed.xlsx')
-            results_temp = results_temp[results_temp['bbq'] == False]
-            results_temp.rename(columns={'probab_label': f'results_Gemini_T{t}'}, inplace=True)
-            dfs[f'results_{bt}'] = pd.merge(dfs[f'results_{bt}'], results_temp[['context', 'question', 'answer', 'label', f'results_Gemini_T{t}']], on=['context', 'question', 'answer', 'label'], how='outer')
-
-        for i in range(len(temps)):
-            t = temps[i]
-            results_temp = pd.read_excel(input_dir + f'gpt/{bt}_gpt_temp_{t}_processed.xlsx')
-            results_temp = results_temp[results_temp['bbq'] == False]
-            results_temp.rename(columns={'probab_label': f'results_gpt4omini_temp_{t}_num'}, inplace=True)
-            dfs[f'results_{bt}'] = pd.merge(dfs[f'results_{bt}'], results_temp[['context', 'question', 'answer', 'label', f'results_gpt4omini_temp_{t}_num']], on=['context', 'question', 'answer', 'label'], how='outer')
-
-        for i in range(len(temps)):
-            t = temps[i]
-            results_temp = pd.read_excel(input_dir + f'llama/{bt}_llama_31_8B_temp_{t}_processed.xlsx')
-            results_temp = results_temp[results_temp['bbq'] == False] 
-            results_temp.rename(columns={'probab_label': f'results_llama_318B_temp_{t}_num'}, inplace=True)
-            dfs[f'results_{bt}'] = pd.merge(dfs[f'results_{bt}'], results_temp[['context', 'question', 'answer', 'label', f'results_llama_318B_temp_{t}_num']], on=['context', 'question', 'answer', 'label'], how='outer')
-
-        for i in range(len(temps)):
-            t = temps[i]
-            results_temp = pd.read_excel(input_dir + f'llama_uncensored/{bt}_llama_uncensored_31_8B_temp_{t}_processed.xlsx') 
-            results_temp = results_temp[results_temp['bbq'] == False] 
-            results_temp.rename(columns={'probab_label': f'results_llama_318B_uncensored_temp_{t}_num'}, inplace=True)
-            dfs[f'results_{bt}'] = pd.merge(dfs[f'results_{bt}'], results_temp[['context', 'question', 'answer', 'label', f'results_llama_318B_uncensored_temp_{t}_num']], on=['context', 'question', 'answer', 'label'], how='outer', validate='1:1')
-
-        dfs[f'results_{bt}']['tipo'] = bt
-        dfs[f'results_{bt}'].rename(columns={'id_prompt': 'prompt_id'}, inplace=True)
-    
-    df_all = pd.concat([dfs[f'results_{bt}'] for bt in bias_types], ignore_index=True)
-    excel_file = f'aggregated_results_temps_{language}.xlsx'
-
-    with pd.ExcelWriter(excel_file) as writer:
+    with pd.ExcelWriter(out_path_all) as writer:
         df_all.to_excel(writer, index=False, sheet_name='All')
-        for bt in bias_types: dfs[f'results_{bt}'].to_excel(writer, index=False, sheet_name=f'{bt.capitalize()}')
+        for bt, df in zip(bias_types, all_dfs):
+            df.to_excel(writer, index=False, sheet_name=bt.capitalize())
 
-    results_75 = {}
-    for bt in bias_types:
+    # Subset para temp 075
+    models_075 = {
+        colnames["gpt"]("075"): "GPT-4o mini",
+        colnames["llama"]("075"): "Llama 3.1 Instruct",
+        colnames["llama_unc"]("075"): "Llama 3.1 Uncensored",
+        colnames["deepseek"]("075"): "DeepSeek R1",
+        colnames["gemini"]("075"): "Gemini2.0 Flash",
+        colnames["claude"]("075"): "Claude 3.5 Haiku",
+    }
 
-        results_75[bt] = dfs[f'results_{bt}'][['tipo', 'prompt_id', 'question_polarity', 'context_condition', 'label',
-       'target', 'other','results_gpt4omini_temp_075_num', 'results_llama_318B_temp_075_num',
-       'results_llama_318B_uncensored_temp_075_num', 'results_DeepSeekR1_7B_T075', 
-       'results_Gemini_T075', 'results_Claude_T075']].copy()
+    all_075 = []
+    for df in all_dfs:
+        cols = ['tipo', 'prompt_id', 'question_polarity', 'context_condition', 'label', 'target', 'other'] + list(models_075.keys())
+        if all(c in df.columns for c in cols):
+            df_075 = df[cols].copy()
+            df_075.rename(columns=models_075, inplace=True)
+            all_075.append(df_075)
 
-        results_75[bt].rename(columns={'results_gpt4omini_temp_075_num': 'GPT-4o mini',
-                            'results_llama_318B_temp_075_num': 'Llama 3.1 Instruct',
-                            'results_llama_318B_uncensored_temp_075_num': 'Llama 3.1 Uncensored',
-                            'results_DeepSeekR1_7B_T075': 'DeepSeek R1',
-                            'results_Gemini_T075': 'Gemini2.0 Flash',
-                            'results_Claude_T075': 'Claude 3.5 Haiku'}, inplace=True)
-        
-    df_all_75 = pd.concat([results_75[bt] for bt in bias_types], ignore_index=True)
-    excel_file_75 = f'aggregated_results_temps_075_{language}.xlsx'
-    
-    with pd.ExcelWriter(excel_file_75) as writer:
-        df_all_75.to_excel(writer, index=False, sheet_name='All')
-        for bt in bias_types:
-            results_75[bt].to_excel(writer, index=False, sheet_name=f'{bt.capitalize()}')
+    df_075_all = pd.concat(all_075, ignore_index=True)
+    out_path_075 = f'aggregated_results_temps_075_{language}.xlsx'
+
+    with pd.ExcelWriter(out_path_075) as writer:
+        df_075_all.to_excel(writer, index=False, sheet_name='All')
+        for bt, df in zip(bias_types, all_075):
+            df.to_excel(writer, index=False, sheet_name=bt.capitalize())
+
+    return df_all
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Collect processed results and aggregate into a single Excel file.")
-    parser.add_argument('--input_dir', type=str, required=True, help='Directory containing processed .xlsx files')
-    parser.add_argument('--language', type=str, required=True, choices=['es', 'en'], help='Language code: es or en')
-    parser.add_argument('--output_path', type=str, default=None, help='Path to save the aggregated Excel file')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input_dir', type=str, required=True)
+    parser.add_argument('--language', type=str, required=True, choices=['es', 'en'])
+    parser.add_argument('--output_path', type=str, default=None)
     args = parser.parse_args()
 
-    # Set output path with language in the filename if not provided
-    if args.output_path is None:
-        output_path = f'../../results_prompts/Resultados_agregados_Temperaturas_{args.language}.xlsx'
-    else:
-        output_path = args.output_path
-
     df_all = collect_results(args.input_dir, args.language)
+
+    output_path = args.output_path or f'../../results_prompts/Resultados_agregados_Temperaturas_{args.language}.xlsx'
     if not df_all.empty:
         df_all.to_excel(output_path, index=False)
         print(f"Aggregated results saved to {output_path}")
     else:
-        print("No .xlsx files found in the specified directory.")
-
-
+        print("No results to save.")
