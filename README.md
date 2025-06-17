@@ -67,3 +67,51 @@ uv run python run_llm.py --model_id <model_id> --excel_path <path.xlsx> --sheet_
 ```
 uv run python compute_metrics.py --input_path <input_path.csv> --output_path <output_path.xlsx> 
 ```
+#### 6. Run metrics
+
+**Prerequisites:**
+
+- Required packages installed (e.g., `pandas`, `openpyxl`, `matplotlib`, etc.)  
+- Dataset Excel files located in the appropriate folder structure (see paths below)  
+
+---
+
+**How to Run**
+
+1. Check and update paths in the script before running:
+
+   - `path` — folder containing input Excel files with raw results  
+   - `output_path` — folder where output tables will be saved  
+   - `output_path_temp` — folder where temperature-related tables will be saved  
+   - `output_graph` — folder where figures will be saved  
+   - `output_path_multi` — folder for multilingual output tables  
+
+   Update these paths to match your local file system.
+
+2. Input files expected:
+
+   - `Resultados_agregados_vf_T075.xlsx`  
+   - `Resultados_agregados_Temperaturas.xlsx`  
+   - `Resultados inglés.xlsx` (with sheets 'Sheet1' and 'Sheet2')  
+
+3. Run the script:
+
+   ```bash
+   src/metrics/main.py
+### What the script does:
+
+- Loads data from the Excel files  
+- Calculates bias metrics for specified models  
+- Saves bias metric tables (`metrics_ambiguous.xlsx`, `metrics_disambiguated.xlsx`) to the output folder  
+- Generates and saves plots for bias and temperature effects  
+- Performs multilingual bias evaluations and saves results  
+
+---
+
+### Notes:
+
+- Make sure you have all required dependencies installed. You can install missing Python packages with:
+
+  ```bash
+  pip install pandas openpyxl matplotlib seaborn
+
